@@ -15,37 +15,39 @@ function renderPlayer() {
   const playerShell = document.getElementById("player-shell");
   if (!playerShell) return;
 
-  playerShell.innerHTML = `
-    <div class="player-container">
-      <div class="player-info">
-        <div>
-          <p class="player-label">Now playing</p>
-          <p id="player-title" class="player-title">No episode selected</p>
-        </div>
-      </div>
-      <div class="player-controls">
-        <button id="player-toggle" class="player-toggle" disabled>Play</button>
-        <div class="player-progress-wrapper">
-          <span id="player-current-time">0:00</span>
-          <div id="player-progress" class="player-progress">
-            <div id="player-progress-bar" class="player-progress-bar"></div>
+  if (!playerShell.querySelector(".player-container")) {
+    playerShell.innerHTML = `
+      <div class="player-container">
+        <div class="player-info">
+          <div>
+            <p class="player-label">Now playing</p>
+            <p id="player-title" class="player-title">No episode selected</p>
           </div>
-          <span id="player-duration">0:00</span>
+        </div>
+        <div class="player-controls">
+          <button id="player-toggle" class="player-toggle" disabled>Play</button>
+          <div class="player-progress-wrapper">
+            <span id="player-current-time">0:00</span>
+            <div id="player-progress" class="player-progress">
+              <div id="player-progress-bar" class="player-progress-bar"></div>
+            </div>
+            <span id="player-duration">0:00</span>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 
-  elements = {
-    title: document.getElementById("player-title"),
-    toggle: document.getElementById("player-toggle"),
-    progress: document.getElementById("player-progress"),
-    progressBar: document.getElementById("player-progress-bar"),
-    currentTime: document.getElementById("player-current-time"),
-    duration: document.getElementById("player-duration"),
-  };
+    elements = {
+      title: document.getElementById("player-title"),
+      toggle: document.getElementById("player-toggle"),
+      progress: document.getElementById("player-progress"),
+      progressBar: document.getElementById("player-progress-bar"),
+      currentTime: document.getElementById("player-current-time"),
+      duration: document.getElementById("player-duration"),
+    };
 
-  attachPlayerEvents();
+    attachPlayerEvents();
+  }
 }
 
 function attachPlayerEvents() {
@@ -100,7 +102,7 @@ function initPlayer() {
   renderPlayer();
 }
 
-function loadEpisode(episode) {
+function loadEpisode(episode, startPosition = 0) {
   if (!audio || !elements) return;
   if (!episode || !episode.audio) return;
 
@@ -111,6 +113,7 @@ function loadEpisode(episode) {
 
   audio.src = episode.audio;
   audio.load();
+  audio.currentTime = startPosition;
   audio.play().catch((error) => {
     console.warn("Playback failed:", error);
   });
