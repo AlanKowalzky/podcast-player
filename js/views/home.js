@@ -1,8 +1,8 @@
 export default function homeView() {
   return `
     <section>
-      <h1 class="page-heading">Witaj w Podcast Player</h1>
-      <p class="page-description">Rozpocznij od wyszukiwania lub przejrzyj najlepsze podcasty.</p>
+      <h1 class="page-heading">Welcome to Podcast Player</h1>
+      <p class="page-description">Start by searching or browse featured podcasts.</p>
     </section>
   `;
 }

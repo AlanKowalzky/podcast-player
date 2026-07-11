@@ -12,8 +12,8 @@ function renderShell() {
   if (playerShell) {
     playerShell.innerHTML = `
       <div class="player-placeholder">
-        <p>Playlista: ${playlistCount} elementów</p>
-        <p>Odtwarzacz jest gotowy.</p>
+        <p>Playlist items: ${playlistCount}</p>
+        <p>The player is ready.</p>
       </div>
     `;
   }
