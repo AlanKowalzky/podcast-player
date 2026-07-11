@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Podcast Player</title>
+    <link rel="stylesheet" href="styles/global.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand">Podcast Player</div>
+        <nav class="app-nav">
+          <a href="/" data-link>Strona główna</a>
+          <a href="/playlist" data-link>Playlista</a>
+        </nav>
+      </header>
+
+      <main id="app" class="app-content"></main>
+
+      <div id="player-shell" class="player-shell">
+        <p>Odtwarzacz pojawi się tutaj po załadowaniu</p>
+      </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
