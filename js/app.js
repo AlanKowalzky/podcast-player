@@ -1,5 +1,6 @@
 import { initRouter } from "./router.js";
 import { subscribe, getState } from "./state.js";
+import { initPlayer } from "./components/player.js";
 
 function renderShell() {
   const appElement = document.getElementById("app");
@@ -21,6 +22,7 @@ function renderShell() {
 
 function initApp() {
   initRouter();
+  initPlayer();
   renderShell();
   subscribe(renderShell);
 }

@@ -28,4 +28,10 @@ async function searchPodcasts(query) {
   return json.results || [];
 }
 
-export { fetchBestPodcasts, searchPodcasts };
+async function fetchPodcastDetails(id) {
+  const url = `${BASE_URL}/podcasts/${encodeURIComponent(id)}`;
+  const json = await fetchJson(url);
+  return json;
+}
+
+export { fetchBestPodcasts, searchPodcasts, fetchPodcastDetails };
