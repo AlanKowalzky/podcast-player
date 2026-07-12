@@ -19,7 +19,7 @@ async function renderRoute() {
   const appElement = document.getElementById("app");
 
   if (!route) {
-    appElement.innerHTML = `<h1>404</h1><p>Nie znaleziono strony.</p>`;
+    appElement.innerHTML = `<h1>404</h1><p>Page not found.</p>`;
     return;
   }
 
