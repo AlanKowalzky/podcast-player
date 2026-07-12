@@ -105,6 +105,8 @@ body {
   border: 1px solid #e5e7eb;
   border-radius: 1rem;
   background: #ffffff;
+  text-decoration: none;
+  color: inherit;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }

@@ -159,7 +159,7 @@ function loadEpisode(episode, startPosition = null) {
   audio.src = episode.audio;
 
   const savedPosition = getSavedPlaybackPosition(episode);
-  const initialPosition = typeof startPosition === "number" && startPosition > 0
+  const initialPosition = typeof startPosition === "number"
     ? startPosition
     : savedPosition > 0
       ? Math.max(0, savedPosition - 10)

@@ -10,13 +10,13 @@ const debounce = (fn, delay = 300) => {
 
 function formatPodcastCard(podcast) {
   return `
-    <article class="podcast-card" data-id="${podcast.id}">
+    <a href="/podcast/${podcast.id}" data-link class="podcast-card">
       <img src="${podcast.thumbnail}" alt="${podcast.title}" class="podcast-card-image" />
       <div class="podcast-card-content">
         <h2>${podcast.title}</h2>
         <p>${podcast.publisher}</p>
       </div>
-    </article>
+    </a>
   `;
 }
 
@@ -36,22 +36,11 @@ async function loadHomeView() {
 
   try {
     const podcasts = await fetchBestPodcasts();
-    container.innerHTML = renderPodcasts(podcasts);
-    attachCardHandlers();
+      container.innerHTML = renderPodcasts(podcasts);
   } catch (error) {
     container.innerHTML = `<div class="status-message error">Could not load podcasts.</div>`;
     console.error(error);
   }
-}
-
-function attachCardHandlers() {
-  document.querySelectorAll(".podcast-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      const id = card.dataset.id;
-      window.history.pushState(null, null, `/podcast/${id}`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-  });
 }
 
 const searchHandler = debounce(async () => {
@@ -70,7 +59,6 @@ const searchHandler = debounce(async () => {
   try {
     const podcasts = await searchPodcasts(query);
     container.innerHTML = renderPodcasts(podcasts);
-    attachCardHandlers();
   } catch (error) {
     container.innerHTML = `<div class="status-message error">Search failed.</div>`;
     console.error(error);
@@ -92,6 +80,7 @@ export default function homeView() {
       <div class="search-panel">
         <input id="podcast-search" type="text" placeholder="Search podcasts..." autocomplete="off" />
       </div>
+      <p class="api-note">Search results may be limited by the Listen Notes test API and may not match every query.</p>
       <div id="home-content" class="home-content"></div>
     </section>
   `;

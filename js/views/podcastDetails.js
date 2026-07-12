@@ -4,6 +4,8 @@ import { addEpisodeToPlaylist, isEpisodeInPlaylist, removeEpisodeFromPlaylist } 
 
 function formatEpisode(episode) {
   const durationMinutes = Math.floor(episode.audio_length_sec / 60);
+  const durationSeconds = episode.audio_length_sec % 60;
+  const formattedDuration = `${durationMinutes}:${durationSeconds.toString().padStart(2, "0")}`;
   const published = new Date(episode.pub_date_ms).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -15,14 +17,14 @@ function formatEpisode(episode) {
   const playlistButtonClass = inPlaylist ? "episode-playlist-remove" : "episode-playlist-add";
 
   return `
-    <article class="episode-card" data-audio-url="${episode.audio}">
+    <article class="episode-card" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">
       <div class="episode-card-content">
         <h3>${episode.title}</h3>
-        <p>${published} • ${durationMinutes} min</p>
+        <p>${published} • ${formattedDuration}</p>
       </div>
       <div class="episode-actions">
-        <button class="episode-play-button" data-audio-url="${episode.audio}">Play</button>
-        <button class="${playlistButtonClass}" data-audio-url="${episode.audio}"> ${playlistButtonText} </button>
+        <button class="episode-play-button" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">Play</button>
+        <button class="${playlistButtonClass}" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">${playlistButtonText}</button>
       </div>
     </article>
   `;
@@ -87,17 +89,18 @@ function attachHandlers() {
   document.querySelectorAll(".episode-playlist-add").forEach((button) => {
     button.addEventListener("click", () => {
       const audioUrl = button.dataset.audioUrl;
+      const episodeId = button.dataset.episodeId;
       const titleElement = button.closest(".episode-card").querySelector("h3");
       const title = titleElement ? titleElement.textContent : "Episode";
-      addEpisodeToPlaylist({ title, audio: audioUrl });
+      addEpisodeToPlaylist({ id: episodeId, title, audio: audioUrl });
       loadPodcastDetails(window.location.pathname.split("/").pop());
     });
   });
 
   document.querySelectorAll(".episode-playlist-remove").forEach((button) => {
     button.addEventListener("click", () => {
-      const audioUrl = button.dataset.audioUrl;
-      removeEpisodeFromPlaylist(audioUrl);
+      const episodeId = button.dataset.episodeId;
+      removeEpisodeFromPlaylist(episodeId);
       loadPodcastDetails(window.location.pathname.split("/").pop());
     });
   });
@@ -105,115 +108,11 @@ function attachHandlers() {
 
 export default function podcastDetailsView(params) {
   setTimeout(() => {
-    import { fetchPodcastDetails } from "../api.js";
-    import { loadEpisode } from "../components/player.js";
-    import { addEpisodeToPlaylist, removeEpisodeFromPlaylist, isEpisodeInPlaylist, getState } from "../state.js";
-
-    function formatEpisode(episode) {
-      const durationMinutes = Math.floor(episode.audio_length_sec / 60);
-      const published = new Date(episode.pub_date_ms).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-
-      const inPlaylist = isEpisodeInPlaylist(episode);
-      const addLabel = inPlaylist ? "Remove" : "Add";
-
-      return `
-        <article class="episode-card" data-episode-id="${episode.id}" data-episode-title="${(episode.title || "").replace(/\"/g, '&quot;')}" data-audio-url="${episode.audio}">
-          <div class="episode-card-content">
-            <h3>${episode.title}</h3>
-            <p>${published} • ${durationMinutes} min</p>
-          </div>
-          <div class="episode-actions">
-            <button class="episode-play-button" data-audio-url="${episode.audio}">Play</button>
-            <button class="episode-add-button" data-episode-id="${episode.id}" data-episode-title="${(episode.title || "").replace(/\"/g, '&quot;')}" data-audio-url="${episode.audio}">${addLabel}</button>
-          </div>
-        </article>
-      `;
-    }
-
-    function renderPodcastDetails(podcast) {
-      const episodes = podcast.episodes || [];
-      return `
-        <section>
-          <button id="back-home" class="back-button">Back to Home</button>
-          <div class="podcast-header">
-            <img src="${podcast.image}" alt="${podcast.title}" class="podcast-header-image" />
-            <div class="podcast-header-details">
-              <h1 class="page-heading">${podcast.title}</h1>
-              <p class="page-description">${podcast.publisher}</p>
-              <p class="podcast-description">${podcast.description || "No description available."}</p>
-            </div>
-          </div>
-          <div class="episodes-section">
-            <h2>Episodes</h2>
-            <div class="episode-list">
-              ${episodes.map(formatEpisode).join("")}
-            </div>
-          </div>
-        </section>
-      `;
-    }
-
-    async function loadPodcastDetails(id) {
-      const container = document.getElementById("podcast-detail-content");
-      if (!container) return;
-      container.innerHTML = `<div class="status-message">Loading podcast details...</div>`;
-      try {
-        const podcast = await fetchPodcastDetails(id);
-        container.innerHTML = renderPodcastDetails(podcast);
-        attachHandlers();
-      } catch (error) {
-        container.innerHTML = `<div class="status-message error">Could not load podcast details.</div>`;
-        console.error(error);
-      }
-    }
-
-    function attachHandlers() {
-      const backButton = document.getElementById("back-home");
-      if (backButton) {
-        backButton.addEventListener("click", (event) => {
-          event.preventDefault();
-          window.history.pushState(null, null, "/");
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        });
-      }
-
-      document.querySelectorAll(".episode-play-button").forEach((button) => {
-        button.addEventListener("click", () => {
-          const audioUrl = button.dataset.audioUrl;
-          const titleElement = button.closest(".episode-card").querySelector("h3");
-          const title = titleElement ? titleElement.textContent : "Episode";
-          const episode = { id: button.closest(".episode-card").dataset.episodeId, title, audio: audioUrl };
-          const savedPosition = getState().playbackPositions && getState().playbackPositions[episode.id] ? getState().playbackPositions[episode.id] : 0;
-          loadEpisode(episode, Math.max(0, (savedPosition || 0) - 10));
-        });
-      });
-
-      document.querySelectorAll(".episode-add-button").forEach((button) => {
-        button.addEventListener("click", (e) => {
-          const el = e.currentTarget;
-          const episode = { id: el.dataset.episodeId, title: el.dataset.episodeTitle, audio: el.dataset.audioUrl };
-          if (isEpisodeInPlaylist(episode)) {
-            removeEpisodeFromPlaylist(episode);
-            el.textContent = "Add";
-          } else {
-            addEpisodeToPlaylist(episode);
-            el.textContent = "Remove";
-          }
-        });
-      });
-    }
-
-    export default function podcastDetailsView(params) {
-      setTimeout(() => {
-        loadPodcastDetails(params[0]);
-      }, 0);
-      return `
-        <section id="podcast-detail-content">
-          <div class="status-message">Preparing podcast details...</div>
-        </section>
-      `;
-    }
+    loadPodcastDetails(params[0]);
+  }, 0);
+  return `
+    <section id="podcast-detail-content">
+      <div class="status-message">Preparing podcast details...</div>
+    </section>
+  `;
+}
