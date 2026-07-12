@@ -1,4 +1,4 @@
-import { setState, updatePlaybackPosition, getSavedPlaybackPosition } from "../state.js";
+import { setState, updatePlaybackPosition, getSavedPlaybackPosition, addEpisodeToPlaylist, removeEpisodeFromPlaylist, isEpisodeInPlaylist } from "../state.js";
 
 let audio = null;
 let currentEpisode = null;
@@ -27,7 +27,10 @@ function renderPlayer() {
           </div>
         </div>
         <div class="player-controls">
-          <button id="player-toggle" class="player-toggle" disabled>Play</button>
+          <div class="player-control-row">
+            <button id="player-toggle" class="player-toggle" disabled>Play</button>
+            <button id="player-add" class="player-add" disabled>Add</button>
+          </div>
           <div class="player-progress-wrapper">
             <span id="player-current-time">0:00</span>
             <div id="player-progress" class="player-progress">
@@ -42,6 +45,7 @@ function renderPlayer() {
     elements = {
       title: document.getElementById("player-title"),
       toggle: document.getElementById("player-toggle"),
+      addBtn: document.getElementById("player-add"),
       progress: document.getElementById("player-progress"),
       progressBar: document.getElementById("player-progress-bar"),
       currentTime: document.getElementById("player-current-time"),
@@ -122,6 +126,19 @@ function attachPlayerEvents() {
     const percent = Math.max(0, Math.min(1, clickX / rect.width));
     audio.currentTime = percent * (audio.duration || 0);
   });
+
+  if (elements.addBtn) {
+    elements.addBtn.addEventListener("click", () => {
+      if (!currentEpisode) return;
+      if (isEpisodeInPlaylist(currentEpisode)) {
+        removeEpisodeFromPlaylist(currentEpisode);
+        elements.addBtn.textContent = "Add";
+      } else {
+        addEpisodeToPlaylist(currentEpisode);
+        elements.addBtn.textContent = "Remove";
+      }
+    });
+  }
 }
 
 function initPlayer() {
@@ -158,6 +175,10 @@ function loadEpisode(episode, startPosition = null) {
 
   elements.title.textContent = title;
   elements.toggle.disabled = false;
+  if (elements.addBtn) {
+    elements.addBtn.disabled = false;
+    elements.addBtn.textContent = isEpisodeInPlaylist(episode) ? "Remove" : "Add";
+  }
 }
 
 export { initPlayer, loadEpisode };

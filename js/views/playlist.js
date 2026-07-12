@@ -1,41 +1,53 @@
 import { getState, removeEpisodeFromPlaylist } from "../state.js";
-
-function formatPlaylistItem(episode) {
-  return `
-    <article class="playlist-card" data-audio-url="${episode.audio}">
-      <div>
-        <h3>${episode.title}</h3>
-        <p>${episode.audio}</p>
-      </div>
-      <button class="playlist-remove-button" data-audio-url="${episode.audio}">Remove</button>
-    </article>
-  `;
-}
-
-function renderPlaylistItems() {
-  const { playlist } = getState();
-  if (!playlist.length) {
-    return `<div class="status-message">Your playlist is empty.</div>`;
-  }
-
-  return `<div class="playlist-list">${playlist.map(formatPlaylistItem).join("")}</div>`;
-}
-
-function attachPlaylistHandlers() {
-  document.querySelectorAll(".playlist-remove-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const audioUrl = button.dataset.audioUrl;
-      removeEpisodeFromPlaylist(audioUrl);
-      renderPlaylist();
-    });
-  });
-}
+import { loadEpisode } from "../components/player.js";
 
 function renderPlaylist() {
   const container = document.getElementById("playlist-content");
-  if (!container) return;
-  container.innerHTML = renderPlaylistItems();
-  attachPlaylistHandlers();
+    if (!container) return;
+    const state = getState();
+    const list = state.playlist || [];
+
+    if (!list.length) {
+      container.innerHTML = `<div class="status-message">Your playlist is empty.</div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="playlist-list">
+        ${list
+          .map(
+            (ep) => `
+          <article class="episode-card" data-episode-id="${ep.id}">
+            <div class="episode-card-content">
+              <h3>${ep.title}</h3>
+            </div>
+            <div class="episode-actions">
+              <button class="playlist-play-button" data-audio-url="${ep.audio}">Play</button>
+              <button class="playlist-remove-button" data-episode-id="${ep.id}">Remove</button>
+            </div>
+          </article>
+        `
+          )
+          .join("")}
+      </div>
+    `;
+
+    // attach handlers
+    document.querySelectorAll(".playlist-play-button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const audio = btn.dataset.audioUrl;
+        const title = btn.closest(".episode-card").querySelector("h3").textContent;
+        loadEpisode({ id: btn.closest(".episode-card").dataset.episodeId, title, audio }, null);
+      });
+    });
+
+    document.querySelectorAll(".playlist-remove-button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.episodeId;
+        removeEpisodeFromPlaylist(id);
+        renderPlaylist();
+      });
+    });
 }
 
 export default function playlistView() {
