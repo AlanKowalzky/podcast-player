@@ -1,8 +1,10 @@
-import { setState } from "../state.js";
+import { setState, updatePlaybackPosition, getSavedPlaybackPosition } from "../state.js";
 
 let audio = null;
 let currentEpisode = null;
 let elements = null;
+let lastSavedSecond = 0;
+let resumePosition = 0;
 
 function formatTime(seconds) {
   const rounded = Math.floor(seconds);
@@ -76,6 +78,10 @@ function attachPlayerEvents() {
   audio.addEventListener("loadedmetadata", () => {
     if (!elements) return;
     elements.duration.textContent = formatTime(audio.duration || 0);
+    if (resumePosition > 0) {
+      audio.currentTime = resumePosition;
+      resumePosition = 0;
+    }
     elements.currentTime.textContent = formatTime(audio.currentTime || 0);
   });
 
@@ -86,6 +92,28 @@ function attachPlayerEvents() {
     const progress = Math.min(100, (current / duration) * 100);
     elements.currentTime.textContent = formatTime(current);
     elements.progressBar.style.width = `${progress}%`;
+
+    if (current - lastSavedSecond >= 5) {
+      lastSavedSecond = current;
+      if (currentEpisode) {
+        updatePlaybackPosition(currentEpisode, current);
+      }
+    }
+  });
+
+  audio.addEventListener("pause", () => {
+    if (elements) {
+      elements.toggle.textContent = "Play";
+    }
+    if (currentEpisode) {
+      updatePlaybackPosition(currentEpisode, audio.currentTime || 0);
+    }
+  });
+
+  audio.addEventListener("ended", () => {
+    if (currentEpisode) {
+      updatePlaybackPosition(currentEpisode, audio.duration || 0);
+    }
   });
 
   elements.progress.addEventListener("click", (event) => {
@@ -102,7 +130,7 @@ function initPlayer() {
   renderPlayer();
 }
 
-function loadEpisode(episode, startPosition = 0) {
+function loadEpisode(episode, startPosition = null) {
   if (!audio || !elements) return;
   if (!episode || !episode.audio) return;
 
@@ -112,8 +140,18 @@ function loadEpisode(episode, startPosition = 0) {
   setState({ currentEpisode: episode });
 
   audio.src = episode.audio;
+
+  const savedPosition = getSavedPlaybackPosition(episode);
+  const initialPosition = typeof startPosition === "number" && startPosition > 0
+    ? startPosition
+    : savedPosition > 0
+      ? Math.max(0, savedPosition - 10)
+      : 0;
+
+  resumePosition = initialPosition;
+  lastSavedSecond = 0;
+
   audio.load();
-  audio.currentTime = startPosition;
   audio.play().catch((error) => {
     console.warn("Playback failed:", error);
   });

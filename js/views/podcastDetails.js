@@ -1,5 +1,6 @@
 import { fetchPodcastDetails } from "../api.js";
 import { loadEpisode } from "../components/player.js";
+import { addEpisodeToPlaylist, isEpisodeInPlaylist, removeEpisodeFromPlaylist } from "../state.js";
 
 function formatEpisode(episode) {
   const durationMinutes = Math.floor(episode.audio_length_sec / 60);
@@ -9,13 +10,20 @@ function formatEpisode(episode) {
     day: "numeric",
   });
 
+  const inPlaylist = isEpisodeInPlaylist(episode);
+  const playlistButtonText = inPlaylist ? "Remove from playlist" : "Add to playlist";
+  const playlistButtonClass = inPlaylist ? "episode-playlist-remove" : "episode-playlist-add";
+
   return `
-    <article class="episode-card">
+    <article class="episode-card" data-audio-url="${episode.audio}">
       <div class="episode-card-content">
         <h3>${episode.title}</h3>
         <p>${published} • ${durationMinutes} min</p>
       </div>
-      <button class="episode-play-button" data-audio-url="${episode.audio}">Play</button>
+      <div class="episode-actions">
+        <button class="episode-play-button" data-audio-url="${episode.audio}">Play</button>
+        <button class="${playlistButtonClass}" data-audio-url="${episode.audio}"> ${playlistButtonText} </button>
+      </div>
     </article>
   `;
 }
@@ -73,6 +81,24 @@ function attachHandlers() {
       const titleElement = button.closest(".episode-card").querySelector("h3");
       const title = titleElement ? titleElement.textContent : "Episode";
       loadEpisode({ title, audio: audioUrl });
+    });
+  });
+
+  document.querySelectorAll(".episode-playlist-add").forEach((button) => {
+    button.addEventListener("click", () => {
+      const audioUrl = button.dataset.audioUrl;
+      const titleElement = button.closest(".episode-card").querySelector("h3");
+      const title = titleElement ? titleElement.textContent : "Episode";
+      addEpisodeToPlaylist({ title, audio: audioUrl });
+      loadPodcastDetails(window.location.pathname.split("/").pop());
+    });
+  });
+
+  document.querySelectorAll(".episode-playlist-remove").forEach((button) => {
+    button.addEventListener("click", () => {
+      const audioUrl = button.dataset.audioUrl;
+      removeEpisodeFromPlaylist(audioUrl);
+      loadPodcastDetails(window.location.pathname.split("/").pop());
     });
   });
 }
