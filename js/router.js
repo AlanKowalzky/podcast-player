@@ -4,17 +4,34 @@ const routes = [
   { path: /^\/playlist$/, view: () => import("./views/playlist.js") },
 ];
 
+// Wykrywamy czy jesteśmy na GitHub Pages i definiujemy bazową ścieżkę
+const basePath = window.location.hostname.includes('github.io') ? '/podcast-player' : '';
+
 function matchRoute(pathname) {
   return routes.find((route) => route.path.test(pathname));
 }
 
 function navigateTo(url) {
-  history.pushState(null, null, url);
+  let targetUrl = url;
+
+  // Jeśli przechodzimy do wewnętrznego linku na GH Pages, upewniamy się, że ma prefiks bazy
+  if (basePath && !targetUrl.includes(basePath) && targetUrl.startsWith(window.location.origin)) {
+    const pathWithoutOrigin = targetUrl.replace(window.location.origin, '');
+    targetUrl = `${window.location.origin}${basePath}${pathWithoutOrigin}`;
+  }
+
+  history.pushState(null, null, targetUrl);
   renderRoute();
 }
 
 async function renderRoute() {
-  const pathname = window.location.pathname;
+  let pathname = window.location.pathname;
+
+  // Odcinamy "/podcast-player" przed dopasowaniem regexu, żeby pasowało do reguł routes
+  if (basePath && pathname.startsWith(basePath)) {
+    pathname = pathname.slice(basePath.length) || '/';
+  }
+
   const route = matchRoute(pathname);
   const appElement = document.getElementById("app");
 
