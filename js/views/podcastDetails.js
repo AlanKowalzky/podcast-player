@@ -1,8 +1,8 @@
 import { fetchPodcastDetails } from "../api.js";
 import { loadEpisode } from "../components/player.js";
-import { addEpisodeToPlaylist, isEpisodeInPlaylist, removeEpisodeFromPlaylist } from "../state.js";
+import { addEpisodeToPlaylist, getEpisodeKey, isEpisodeInPlaylist, normalizeEpisodeMetadata, removeEpisodeFromPlaylist, setState, getState } from "../state.js";
 
-function formatEpisode(episode) {
+function formatEpisode(episode, podcast) {
   const durationMinutes = Math.floor(episode.audio_length_sec / 60);
   const durationSeconds = episode.audio_length_sec % 60;
   const formattedDuration = `${durationMinutes}:${durationSeconds.toString().padStart(2, "0")}`;
@@ -11,20 +11,23 @@ function formatEpisode(episode) {
     month: "short",
     day: "numeric",
   });
+  const episodeImage = episode.image || episode.thumbnail || "";
+  const podcastId = podcast?.id || "";
 
-  const inPlaylist = isEpisodeInPlaylist(episode);
+  const normalizedEpisode = normalizeEpisodeMetadata({ ...episode, podcastId }, podcast);
+  const inPlaylist = isEpisodeInPlaylist(normalizedEpisode);
   const playlistButtonText = inPlaylist ? "Remove from playlist" : "Add to playlist";
   const playlistButtonClass = inPlaylist ? "episode-playlist-remove" : "episode-playlist-add";
 
   return `
-    <article class="episode-card" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">
+    <article class="episode-card" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}" data-podcast-id="${podcastId}" data-podcast-title="${podcast.title || ''}" data-podcast-image="${podcast.image || ''}" data-podcast-publisher="${podcast.publisher || ''}" data-episode-image="${episodeImage}">
       <div class="episode-card-content">
         <h3>${episode.title}</h3>
         <p>${published} • ${formattedDuration}</p>
       </div>
       <div class="episode-actions">
-        <button class="episode-play-button" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">Play</button>
-        <button class="${playlistButtonClass}" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}">${playlistButtonText}</button>
+        <button class="episode-play-button" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}" data-podcast-id="${podcastId}" data-podcast-title="${podcast.title || ''}" data-podcast-image="${podcast.image || ''}" data-podcast-publisher="${podcast.publisher || ''}" data-episode-image="${episodeImage}">Play</button>
+        <button class="${playlistButtonClass}" data-episode-id="${episode.id || ''}" data-audio-url="${episode.audio}" data-podcast-id="${podcastId}" data-podcast-title="${podcast.title || ''}" data-podcast-image="${podcast.image || ''}" data-podcast-publisher="${podcast.publisher || ''}" data-episode-image="${episodeImage}">${playlistButtonText}</button>
       </div>
     </article>
   `;
@@ -34,7 +37,7 @@ function renderPodcastDetails(podcast) {
   const episodes = podcast.episodes || [];
   return `
     <section>
-      <button id="back-home" class="back-button">Back to Home</button>
+      <button id="back-home" class="back-button">Back home</button>
       <div class="podcast-header">
         <img src="${podcast.image}" alt="${podcast.title}" class="podcast-header-image" />
         <div class="podcast-header-details">
@@ -46,11 +49,54 @@ function renderPodcastDetails(podcast) {
       <div class="episodes-section">
         <h2>Episodes</h2>
         <div class="episode-list">
-          ${episodes.map(formatEpisode).join("")}
+          ${episodes.map((episode) => formatEpisode(episode, podcast)).join("")}
         </div>
       </div>
     </section>
   `;
+}
+
+function resolvePodcastHeader(id, apiPodcast) {
+  const active = getState().activePodcastContext;
+  const playing = getState().currentEpisode;
+  const currentViewPodcastId = String(id);
+  const sourceFromActive = active && String(active.id) === currentViewPodcastId;
+  const sourceFromEpisode = !sourceFromActive && playing && String(playing.podcastId) === currentViewPodcastId;
+
+  const api = { ...apiPodcast };
+  return {
+    id: currentViewPodcastId,
+    title:
+      (sourceFromActive && active.title) ||
+      (sourceFromEpisode && (playing.podcastTitle || playing.podcast?.title)) ||
+      api.title ||
+      "Unknown",
+    image:
+      (sourceFromActive && active.image) ||
+      (sourceFromEpisode && (playing.podcastImage || playing.podcast?.image)) ||
+      api.image ||
+      "",
+    publisher:
+      (sourceFromActive && active.publisher) ||
+      (sourceFromEpisode && (playing.podcastPublisher || playing.podcast?.publisher)) ||
+      api.publisher ||
+      "",
+    description: api.description || "",
+    episodes: api.episodes || [],
+  };
+}
+
+function refreshPlaylistButtons(podcast) {
+  document.querySelectorAll(".episode-card").forEach((card) => {
+    const episodeId = card.dataset.episodeId;
+    const podId = card.dataset.podcastId || podcast.id;
+    const normalizedEpisode = normalizeEpisodeMetadata({ id: episodeId, podcastId: podId }, podcast);
+    const inPlaylist = isEpisodeInPlaylist(normalizedEpisode);
+    const button = card.querySelector(".episode-playlist-add, .episode-playlist-remove");
+    if (!button) return;
+    button.textContent = inPlaylist ? "Remove from playlist" : "Add to playlist";
+    button.className = inPlaylist ? "episode-playlist-remove" : "episode-playlist-add";
+  });
 }
 
 async function loadPodcastDetails(id) {
@@ -58,51 +104,81 @@ async function loadPodcastDetails(id) {
   if (!container) return;
   container.innerHTML = `<div class="status-message">Loading podcast details...</div>`;
   try {
-    const podcast = await fetchPodcastDetails(id);
+    const apiPodcast = await fetchPodcastDetails(id);
+    const podcast = resolvePodcastHeader(id, apiPodcast);
+    setState({ selectedPodcast: podcast });
     container.innerHTML = renderPodcastDetails(podcast);
-    attachHandlers();
+    attachHandlers(podcast);
+    refreshPlaylistButtons(podcast);
   } catch (error) {
     container.innerHTML = `<div class="status-message error">Could not load podcast details.</div>`;
     console.error(error);
   }
 }
 
-function attachHandlers() {
+function attachHandlers(podcast) {
   const backButton = document.getElementById("back-home");
   if (backButton) {
     backButton.addEventListener("click", (event) => {
       event.preventDefault();
-      window.history.pushState(null, null, "/");
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      window.location.hash = "#/";
     });
   }
 
-  document.querySelectorAll(".episode-play-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const audioUrl = button.dataset.audioUrl;
-      const titleElement = button.closest(".episode-card").querySelector("h3");
-      const title = titleElement ? titleElement.textContent : "Episode";
-      loadEpisode({ title, audio: audioUrl });
-    });
-  });
+  const episodeList = document.querySelector(".episode-list");
+  if (!episodeList) return;
 
-  document.querySelectorAll(".episode-playlist-add").forEach((button) => {
-    button.addEventListener("click", () => {
-      const audioUrl = button.dataset.audioUrl;
-      const episodeId = button.dataset.episodeId;
-      const titleElement = button.closest(".episode-card").querySelector("h3");
-      const title = titleElement ? titleElement.textContent : "Episode";
-      addEpisodeToPlaylist({ id: episodeId, title, audio: audioUrl });
-      loadPodcastDetails(window.location.pathname.split("/").pop());
-    });
-  });
+  episodeList.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button || !episodeList.contains(button)) return;
 
-  document.querySelectorAll(".episode-playlist-remove").forEach((button) => {
-    button.addEventListener("click", () => {
-      const episodeId = button.dataset.episodeId;
-      removeEpisodeFromPlaylist(episodeId);
-      loadPodcastDetails(window.location.pathname.split("/").pop());
-    });
+    const card = button.closest(".episode-card");
+    if (!card) return;
+
+    const episodeId = card.dataset.episodeId;
+    const podcastId = card.dataset.podcastId || podcast.id;
+    const titleElement = card.querySelector("h3");
+    const title = titleElement ? titleElement.textContent : "Episode";
+    const audioUrl = button.dataset.audioUrl || card.dataset.audioUrl;
+    const episodeImage = card.dataset.episodeImage || "";
+    const podcastTitle = card.dataset.podcastTitle || podcast.title;
+    const podcastImage = card.dataset.podcastImage || podcast.image;
+    const podcastPublisher = card.dataset.podcastPublisher || podcast.publisher;
+
+    if (button.classList.contains("episode-play-button")) {
+      loadEpisode({
+        id: episodeId,
+        title,
+        audio: audioUrl,
+        podcastId: podcast.id,
+        podcastTitle: podcast.title,
+        podcastImage: podcast.image,
+        podcastPublisher: podcast.publisher,
+      }, null, { autoPlay: true }, podcast);
+      return;
+    }
+
+    if (button.classList.contains("episode-playlist-add")) {
+      addEpisodeToPlaylist(normalizeEpisodeMetadata({
+        id: episodeId,
+        title,
+        audio: audioUrl,
+        image: episodeImage,
+        episodeImage,
+        podcastId,
+        podcastTitle,
+        podcastImage,
+        podcastPublisher,
+      }, podcast));
+      refreshPlaylistButtons(podcast);
+      return;
+    }
+
+    if (button.classList.contains("episode-playlist-remove")) {
+      const episodeKey = getEpisodeKey(normalizeEpisodeMetadata({ id: episodeId, podcastId }, podcast));
+      removeEpisodeFromPlaylist(episodeKey);
+      refreshPlaylistButtons(podcast);
+    }
   });
 }
 

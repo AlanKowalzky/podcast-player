@@ -1,4 +1,5 @@
 import { fetchBestPodcasts, searchPodcasts } from "../api.js";
+import { setState } from "../state.js";
 
 const debounce = (fn, delay = 300) => {
   let timerId;
@@ -9,12 +10,30 @@ const debounce = (fn, delay = 300) => {
 };
 
 function formatPodcastCard(podcast) {
+  const podcastId = podcast.id || podcast.podcast?.id || podcast.podcast_id || "";
+  const title = podcast.title || podcast.podcast?.title_original || podcast.podcast?.title || "Unknown title";
+  const publisher = podcast.publisher || podcast.podcast?.publisher_original || "Unknown publisher";
+  const image = podcast.thumbnail || podcast.image || podcast.podcast?.thumbnail || podcast.podcast?.image || "";
+
+  // safe base64 encode for unicode
+  function toBase64(str) {
+    try {
+      return btoa(unescape(encodeURIComponent(str)));
+    } catch (e) {
+      try { return btoa(str); } catch (e2) { return ""; }
+    }
+  }
+
+  const ctx = { id: podcastId, title, publisher, image };
+  const ctxB64 = podcastId ? toBase64(JSON.stringify(ctx)) : "";
+
   return `
-    <a href="/podcast/${podcast.id}" data-link class="podcast-card">
-      <img src="${podcast.thumbnail}" alt="${podcast.title}" class="podcast-card-image" />
+    <a href="#/podcast/${podcastId}" data-link class="podcast-card" data-podcast-context="${ctxB64}">
+      <img src="${image}" alt="${title}" class="podcast-card-image" />
       <div class="podcast-card-content">
-        <h2>${podcast.title}</h2>
-        <p>${podcast.publisher}</p>
+        <h2>${title}</h2>
+        <p>${publisher}</p>
+        ${podcastId ? `<p class="podcast-card-meta">ID: ${podcastId}</p>` : ""}
       </div>
     </a>
   `;
@@ -71,6 +90,33 @@ window.addEventListener("input", (event) => {
   }
 });
 
+// capture clicks on podcast cards to preserve clean podcast context
+function fromBase64(b64) {
+  try {
+    return decodeURIComponent(escape(atob(b64)));
+  } catch (e) {
+    try { return atob(b64); } catch (e2) { return null; }
+  }
+}
+
+document.body.addEventListener(
+  "click",
+  (event) => {
+    const card = event.target.closest && event.target.closest(".podcast-card");
+    if (!card) return;
+    const ctxB64 = card.getAttribute("data-podcast-context");
+    if (!ctxB64) return;
+    try {
+      const json = fromBase64(ctxB64);
+      if (!json) return;
+      const ctx = JSON.parse(json);
+      setState({ activePodcastContext: ctx });
+    } catch (e) {
+      // ignore
+    }
+  },
+  true
+);
 export default function homeView() {
   setTimeout(loadHomeView, 0);
   return `

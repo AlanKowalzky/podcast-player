@@ -4,34 +4,39 @@ const routes = [
   { path: /^\/playlist$/, view: () => import("./views/playlist.js") },
 ];
 
-// Wykrywamy czy jesteśmy na GitHub Pages i definiujemy bazową ścieżkę
-const basePath = window.location.hostname.includes('github.io') ? '/podcast-player' : '';
+function getPathFromHash() {
+  const rawHash = window.location.hash || "#/";
+  const cleaned = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+  return cleaned || "/";
+}
 
 function matchRoute(pathname) {
   return routes.find((route) => route.path.test(pathname));
 }
 
-function navigateTo(url) {
-  let targetUrl = url;
-
-  // Jeśli przechodzimy do wewnętrznego linku na GH Pages, upewniamy się, że ma prefiks bazy
-  if (basePath && !targetUrl.includes(basePath) && targetUrl.startsWith(window.location.origin)) {
-    const pathWithoutOrigin = targetUrl.replace(window.location.origin, '');
-    targetUrl = `${window.location.origin}${basePath}${pathWithoutOrigin}`;
+function normalizeHash(url) {
+  if (!url) return "#/";
+  const hashIndex = url.indexOf("#");
+  if (hashIndex !== -1) {
+    return url.slice(hashIndex) || "#/";
   }
+  if (url.startsWith("/")) {
+    return `#${url}`;
+  }
+  return `#/${url}`;
+}
 
-  history.pushState(null, null, targetUrl);
-  renderRoute();
+function navigateTo(url) {
+  const hashUrl = normalizeHash(url);
+  if (window.location.hash !== hashUrl) {
+    window.location.hash = hashUrl;
+  } else {
+    renderRoute();
+  }
 }
 
 async function renderRoute() {
-  let pathname = window.location.pathname;
-
-  // Odcinamy "/podcast-player" przed dopasowaniem regexu, żeby pasowało do reguł routes
-  if (basePath && pathname.startsWith(basePath)) {
-    pathname = pathname.slice(basePath.length) || '/';
-  }
-
+  const pathname = getPathFromHash();
   const route = matchRoute(pathname);
   const appElement = document.getElementById("app");
 
@@ -53,12 +58,14 @@ function attachLinkHandlers() {
     const anchor = event.target.closest("a[data-link]");
     if (!anchor) return;
     event.preventDefault();
-    navigateTo(anchor.href);
+    const href = anchor.getAttribute("href") || anchor.href;
+    navigateTo(href);
   });
 }
 
 function initRouter() {
-  window.addEventListener("popstate", renderRoute);
+  window.addEventListener("hashchange", renderRoute);
+  window.addEventListener("load", renderRoute);
   attachLinkHandlers();
   renderRoute();
 }
